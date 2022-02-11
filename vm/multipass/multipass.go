@@ -172,3 +172,11 @@ func (m *Multipass) Info(name string) (vm.Info, error) {
 func (m *Multipass) InstanceOf() string {
 	return vm.Multipass
 }
+
+func (m *Multipass) Exec(args ...string) error {
+	cmd := exec.Command("multipass", args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
