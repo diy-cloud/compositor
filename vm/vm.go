@@ -11,14 +11,15 @@ type VM interface {
 	IsRunning(name string) (bool, error)
 	IsExist(name string) (bool, error)
 	Info(name string) (Info, error)
+	Exec(args ...string) error
 	InstanceOf() string
 }
 
 type Config struct {
-	Name   string
-	CPUs   int64
-	Memory string
-	Disk   string
+	Name   string `yaml:"name"`
+	CPUs   int64  `yaml:"cpus"`
+	Memory string `yaml:"memory"`
+	Disk   string `yaml:"disk"`
 }
 
 type Info struct {
