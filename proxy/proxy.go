@@ -4,14 +4,9 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
-
-	"github.com/snowmerak/compositor/config"
-	"github.com/snowmerak/compositor/vm/multipass"
 )
 
 var ProxyMap = struct {
@@ -60,7 +55,7 @@ func GetProxyServer(id string) (*httputil.ReverseProxy, bool) {
 	return server, ok
 }
 
-func RemoveProxyServer(id string) error {
+func RemoveProxyServer(id string) (string, error) {
 	ProxyMap.Lock()
 	ProxyWorks.Lock()
 	ProxyRealName.Lock()
@@ -75,11 +70,7 @@ func RemoveProxyServer(id string) error {
 	for *works > 0 {
 		runtime.Gosched()
 	}
-	instance := multipass.New()
-	if err := os.RemoveAll(filepath.Join(config.HomePath, name)); err != nil {
-		return err
-	}
-	return instance.Delete(name)
+	return name, nil
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
