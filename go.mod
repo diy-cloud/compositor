@@ -8,6 +8,13 @@ require (
 )
 
 require (
+	github.com/klauspost/compress v1.13.5 // indirect
+	github.com/saracen/fastzip v0.1.7 // indirect
+	github.com/saracen/zipextra v0.0.0-20201205103923-7347a2ee3f10 // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+)
+
+require (
 	github.com/Workiva/go-datastructures v1.0.53 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/caddyserver/certmagic v0.15.2 // indirect
