@@ -2,48 +2,35 @@ package main
 
 import (
 	"fmt"
-	"net/http"
-	"os"
-	"os/signal"
-	"time"
+	"log"
 
-	"github.com/snowmerak/compositor/proxy"
-	"github.com/snowmerak/compositor/router/register"
-	"github.com/snowmerak/lux"
-	"golang.org/x/net/http2"
+	"github.com/snowmerak/compositor/container"
 )
 
 func main() {
-	go func() {
-		app := lux.New(nil)
-		registerGroup := app.NewRouterGroup("/register")
-		registerGroup.POST("/:id", register.Post, nil)
+	end := container.End()
 
-		if err := app.ListenAndServe2TLS(":9797", "localhost/cert.pem", "localhost/key.pem"); err != nil {
-			panic(err)
-		}
-	}()
+	imageName, err := container.NewImageFromURL("docker.io/library/alpine:latest")
+	if err != nil {
+		log.Println(err)
+	}
+	fmt.Println(imageName)
 
-	go func() {
-		server := &http.Server{
-			Addr:           "0.0.0.0:9999",
-			Handler:        http.HandlerFunc(proxy.Handler),
-			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
-			MaxHeaderBytes: 1 << 20,
-		}
+	if err := container.NewContainerBasedOnImage("container12", "snapshot12", imageName); err != nil {
+		log.Println(err)
+	}
+	fmt.Println("made container4")
 
-		http2.ConfigureServer(server, nil)
+	exitStatus, err := container.ExecuteCommand("container12", "echo", "/", "/bin/sh", "-c", "echo HelloWorld!")
+	if err != nil {
+		log.Println(err)
+	}
+	fmt.Println("executed echo")
 
-		fmt.Println("External Server is Listening on :9999")
-		if err := server.ListenAndServeTLS("localhost/cert.pem", "localhost/key.pem"); err != nil {
-			panic(err)
-		}
-	}()
+	if exitStatus != nil {
+		status := <-exitStatus
+		fmt.Println(status.Result())
+	}
 
-	ch := make(chan os.Signal, 1)
-	go func() {
-		signal.Notify(ch, os.Interrupt)
-	}()
-	<-ch
+	<-end
 }
