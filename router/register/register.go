@@ -3,7 +3,6 @@ package register
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 
@@ -41,7 +40,7 @@ func Post(lc *context.LuxContext) error {
 		return err
 	}
 
-	name := lc.GetPathVariable("id") + "-" + hex.EncodeToString(buf[:])
+	// name := lc.GetPathVariable("id") + "-" + hex.EncodeToString(buf[:])
 
 	return nil
 }
