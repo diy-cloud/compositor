@@ -19,6 +19,8 @@ func init() {
 			panic(err)
 		}
 		end <- struct{}{}
+		signal.Stop(terminalSignal)
+		signal.Reset(os.Interrupt, os.Signal(syscall.SIGTERM))
 		close(terminalSignal)
 	}()
 }
