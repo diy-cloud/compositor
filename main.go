@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -56,16 +57,6 @@ func main() {
 		panic(err)
 	}
 
-	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			panic(err)
-		}
-	case data := <-statusCh:
-		fmt.Println(data.StatusCode)
-	}
-
 	out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
 	if err != nil {
 		panic(err)
@@ -86,7 +77,7 @@ func main() {
 	}()
 
 	terminalChan := make(chan os.Signal, 1)
-	signal.Notify(terminalChan)
+	signal.Notify(terminalChan, os.Interrupt, os.Signal(syscall.SIGTERM))
 	<-terminalChan
 
 	if err := cli.ContainerStop(ctx, resp.ID, nil); err != nil {
