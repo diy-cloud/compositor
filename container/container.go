@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 	"io"
+	"os"
 	"sync"
 
 	"github.com/containerd/containerd"
@@ -108,9 +109,40 @@ func (c *Client) NewContainerBasedOnImage(containerID string, snapshotID string,
 	return nil
 }
 
-func CopyFile() {
-	// get containers.Container from container's Info
-	// and get snapshottor name from snapshot's Info
-	// and get snapshot from client's snapshot service
-	// mount !
+func (c *Client) MountTo(containerID string, dst string) error {
+	container, err := c.GetContainer(containerID)
+	if err != nil {
+		return fmt.Errorf("MountTo: %w", err)
+	}
+
+	containerInfo, err := container.Info(c.ctx)
+	if err != nil {
+		return fmt.Errorf("MountTo: %w", err)
+	}
+
+	if err := os.MkdirAll("/home/ubuntu/"+containerInfo.ID, 0755); err != nil {
+		return fmt.Errorf("MountTo: %w", err)
+	}
+
+	snapshotter := c.client.SnapshotService(containerInfo.Snapshotter)
+	info, err := snapshotter.Stat(c.ctx, containerInfo.SnapshotKey)
+	if err != nil {
+		return fmt.Errorf("MountTo: %w", err)
+	}
+	info.Labels = map[string]string{
+		"workdir":  "/home/ubuntu/" + containerInfo.ID + "/work",
+		"upperdir": "/home/ubuntu/" + containerInfo.ID + "/upper",
+		"lowerdir": "/home/ubuntu/" + containerInfo.ID + "/lower",
+	}
+	if _, err := snapshotter.Update(c.ctx, info); err != nil {
+		return fmt.Errorf("MountTo: %w", err)
+	}
+	mounts, err := snapshotter.Mounts(c.ctx, containerInfo.SnapshotKey)
+	if err != nil {
+		return fmt.Errorf("MountTo: %w", err)
+	}
+
+	fmt.Println("mounts: ", mounts)
+
+	return nil
 }
