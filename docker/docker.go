@@ -18,15 +18,21 @@ import (
 
 var ctx, cancel = context.WithCancel(context.Background())
 
-var containerList = []string{}
+var containerList = struct {
+	list []string
+	sync.Mutex
+}{
+	list: []string{},
+}
 
 func Close() error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("ImportImageFromReader: %w", err)
 	}
+	defer cli.Close()
 	cancel()
-	for _, c := range containerList {
+	for _, c := range containerList.list {
 		if err := cli.ContainerStop(ctx, c, nil); err != nil {
 			return fmt.Errorf("ImportImageFromReader: %w", err)
 		}
@@ -39,12 +45,13 @@ func ImportImageFromReader(reader io.Reader, name string) error {
 	if err != nil {
 		return fmt.Errorf("ImportImageFromReader: %w", err)
 	}
+	defer cli.Close()
 
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	readCloser, err := cli.ImageImport(ctx, types.ImageImportSource{
 		Source:     reader,
-		SourceName: "-",
+		SourceName: name,
 	}, name, types.ImageImportOptions{})
 	if err != nil {
 		return fmt.Errorf("ImportImageFromReader: %w", err)
@@ -71,6 +78,7 @@ func CreateContainerByImage(image string, name string) (string, int, error) {
 	if err != nil {
 		return "", 0, fmt.Errorf("CreateContainerByImage: %w", err)
 	}
+	defer cli.Close()
 
 	port := 0
 	Ports.Lock()
@@ -109,6 +117,10 @@ func CreateContainerByImage(image string, name string) (string, int, error) {
 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return "", 0, fmt.Errorf("CreateContainerByImage: %w", err)
 	}
+
+	containerList.Lock()
+	defer containerList.Unlock()
+	containerList.list = append(containerList.list, resp.ID)
 
 	return resp.ID, port, nil
 }
