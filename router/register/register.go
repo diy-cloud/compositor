@@ -1,46 +1,57 @@
 package register
 
 import (
-	"bytes"
-	"crypto/rand"
-	"os"
-	"path/filepath"
+	"fmt"
+	"runtime"
+	"time"
 
-	"github.com/snowmerak/compositor/compress"
-	"github.com/snowmerak/compositor/config"
+	"github.com/snowmerak/compositor/docker"
+	"github.com/snowmerak/compositor/proxy"
 	"github.com/snowmerak/lux/context"
 )
 
 func Post(lc *context.LuxContext) error {
-	body, err := lc.GetBody()
-	if err != nil {
+	bodyReader := lc.GetBodyReader()
+
+	name := lc.GetPathVariable("id")
+
+	if err := docker.ImportImageFromReader(bodyReader, name); err != nil {
 		lc.SetBadRequest()
-		return err
+		return fmt.Errorf("Register.Post: %w", err)
 	}
 
-	homePath := filepath.Join(config.HomePath, lc.GetPathVariable("id"))
-	if err := os.RemoveAll(homePath); err != nil {
-		if !os.IsNotExist(err) {
-			lc.SetInternalServerError()
-			return err
-		}
-	}
-	if err := os.MkdirAll(homePath, 0755); err != nil {
+	id, port, err := docker.CreateContainerByImage(name, name)
+	if err != nil {
 		lc.SetInternalServerError()
-		return err
+		return fmt.Errorf("Register.Post: %w", err)
 	}
-	if err := compress.Untar(bytes.NewReader(body), homePath); err != nil {
+
+	containerName, workCount, port, err := proxy.RemoveProxyServer(name)
+	if err != nil {
 		lc.SetInternalServerError()
-		return err
+		return fmt.Errorf("Register.Post: %w", err)
 	}
 
-	buf := [64]byte{}
-	if _, err := rand.Read(buf[:]); err != nil {
+	if containerName != "" && workCount != nil {
+		go func() {
+			waitCount := 1
+			for {
+				if err := docker.RemoveContainer(containerName, port, workCount); err != nil {
+					time.Sleep(time.Second * time.Duration(waitCount))
+					waitCount++
+					runtime.Gosched()
+					continue
+				}
+				break
+			}
+		}()
+	}
+
+	if err := proxy.AddProxyServer(name, id, port); err != nil {
 		lc.SetInternalServerError()
-		return err
+		return fmt.Errorf("Register.Post: %w", err)
 	}
 
-	// name := lc.GetPathVariable("id") + "-" + hex.EncodeToString(buf[:])
-
-	return nil
+	lc.SetOK()
+	return lc.ReplyString("enabled")
 }
