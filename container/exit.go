@@ -17,7 +17,7 @@ func init() {
 	go func() {
 		<-terminalSignal
 		for _, c := range clients {
-			if err := c.Close(); err != nil {
+			if err := c.CleanUp(); err != nil {
 				log.Println(err)
 			}
 		}

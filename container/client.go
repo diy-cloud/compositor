@@ -44,7 +44,7 @@ func NewClient(namespace string) *Client {
 	return c
 }
 
-func (c *Client) Close() error {
+func (c *Client) CleanUp() error {
 	c.taskMap.Lock()
 	defer c.taskMap.Unlock()
 	c.containerMap.Lock()
@@ -54,21 +54,21 @@ func (c *Client) Close() error {
 	for _, containers := range c.taskMap.m {
 		for _, task := range containers {
 			if err := containerd.WithProcessKill(c.ctx, task); err != nil {
-				return fmt.Errorf("Close: %w", err)
+				return fmt.Errorf("CleanUp: %w", err)
 			}
 			if _, err := task.Delete(c.ctx); err != nil {
-				return fmt.Errorf("Close: %w", err)
+				return fmt.Errorf("CleanUp: %w", err)
 			}
 		}
 	}
 	for _, container := range c.containerMap.m {
 		if err := container.Delete(c.ctx, containerd.WithSnapshotCleanup); err != nil {
-			return fmt.Errorf("Close: %w", err)
+			return fmt.Errorf("CleanUp: %w", err)
 		}
 	}
 	for _, image := range c.imageMap.m {
 		if err := client.ImageService().Delete(c.ctx, image.Name()); err != nil {
-			return fmt.Errorf("Close: DeleteImage: %w", err)
+			return fmt.Errorf("CleanUp: DeleteImage: %w", err)
 		}
 	}
 	return nil
