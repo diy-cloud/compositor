@@ -13,64 +13,60 @@ type ImageMap struct {
 	sync.Mutex
 }
 
-func GetImage(id string) (containerd.Image, error) {
-	imageMap.Lock()
-	image, ok := imageMap.m[id]
-	imageMap.Unlock()
+func (c *Client) GetImage(id string) (containerd.Image, error) {
+	c.imageMap.Lock()
+	image, ok := c.imageMap.m[id]
+	c.imageMap.Unlock()
 	if !ok {
 		return nil, fmt.Errorf("GetImage: %w", ErrNotFound)
 	}
 	return image, nil
 }
 
-func SetImage(id string, image containerd.Image) error {
-	imageMap.Lock()
-	if _, ok := imageMap.m[id]; ok {
-		imageMap.Unlock()
+func (c *Client) SetImage(id string, image containerd.Image) error {
+	c.imageMap.Lock()
+	if _, ok := c.imageMap.m[id]; ok {
+		c.imageMap.Unlock()
 		return ErrAlreadyExists
 	}
-	imageMap.m[id] = image
-	imageMap.Unlock()
+	c.imageMap.m[id] = image
+	c.imageMap.Unlock()
 	return nil
 }
 
-func DeleteImage(id string) error {
-	if err := client.ImageService().Delete(ctx, id); err != nil {
+func (c *Client) DeleteImage(id string) error {
+	if err := client.ImageService().Delete(c.ctx, id); err != nil {
 		return fmt.Errorf("DeleteImage: %w", err)
 	}
-	imageMap.Lock()
-	delete(imageMap.m, id)
-	imageMap.Unlock()
+	c.imageMap.Lock()
+	delete(c.imageMap.m, id)
+	c.imageMap.Unlock()
 	return nil
 }
 
-var imageMap = ImageMap{
-	m: make(map[string]containerd.Image),
-}
-
-func NewImagesFromTarStream(tar io.Reader) ([]string, error) {
-	images, err := client.Import(ctx, tar)
+func (c *Client) NewImagesFromTarStream(tar io.Reader) ([]string, error) {
+	images, err := client.Import(c.ctx, tar)
 	if err != nil {
 		return nil, fmt.Errorf("NewImageFromTar: %w", err)
 	}
 	names := make([]string, len(images))
 	for i := 0; i < len(images); i++ {
 		image := containerd.NewImage(client, images[0])
-		imageMap.Lock()
-		imageMap.m[image.Name()] = image
-		imageMap.Unlock()
+		c.imageMap.Lock()
+		c.imageMap.m[image.Name()] = image
+		c.imageMap.Unlock()
 		names[i] = image.Name()
 	}
 	return names, nil
 }
 
-func NewImageFromURL(url string) (string, error) {
-	image, err := client.Pull(ctx, url, containerd.WithPullUnpack)
+func (c *Client) NewImageFromURL(url string) (string, error) {
+	image, err := client.Pull(c.ctx, url, containerd.WithPullUnpack)
 	if err != nil {
 		return "", fmt.Errorf("NewImageFromURL: %w", err)
 	}
-	imageMap.Lock()
-	imageMap.m[image.Name()] = image
-	imageMap.Unlock()
+	c.imageMap.Lock()
+	c.imageMap.m[image.Name()] = image
+	c.imageMap.Unlock()
 	return image.Name(), nil
 }

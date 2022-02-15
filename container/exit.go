@@ -1,6 +1,7 @@
 package container
 
 import (
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,8 +16,13 @@ func init() {
 
 	go func() {
 		<-terminalSignal
-		if err := Close(); err != nil {
-			panic(err)
+		for _, c := range clients {
+			if err := c.Close(); err != nil {
+				log.Println(err)
+			}
+		}
+		if err := client.Close(); err != nil {
+			log.Println(err)
 		}
 		end <- struct{}{}
 		signal.Stop(terminalSignal)

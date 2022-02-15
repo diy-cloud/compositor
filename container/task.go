@@ -14,10 +14,10 @@ type TaskMap struct {
 	sync.Mutex
 }
 
-func GetTask(containerID string, taskName string) (containerd.Task, error) {
-	taskMap.Lock()
-	tasks, ok := taskMap.m[containerID]
-	taskMap.Unlock()
+func (c *Client) GetTask(containerID string, taskName string) (containerd.Task, error) {
+	c.taskMap.Lock()
+	tasks, ok := c.taskMap.m[containerID]
+	c.taskMap.Unlock()
 	if !ok {
 		return nil, fmt.Errorf("GetTask: %w", ErrNotFound)
 	}
@@ -28,48 +28,44 @@ func GetTask(containerID string, taskName string) (containerd.Task, error) {
 	return task, nil
 }
 
-func SetTask(containerID string, taskName string, task containerd.Task) error {
-	taskMap.Lock()
-	if _, ok := taskMap.m[containerID]; !ok {
-		taskMap.m[containerID] = make(map[string]containerd.Task)
+func (c *Client) SetTask(containerID string, taskName string, task containerd.Task) error {
+	c.taskMap.Lock()
+	if _, ok := c.taskMap.m[containerID]; !ok {
+		c.taskMap.m[containerID] = make(map[string]containerd.Task)
 	}
-	if _, ok := taskMap.m[containerID][taskName]; ok {
-		taskMap.Unlock()
+	if _, ok := c.taskMap.m[containerID][taskName]; ok {
+		c.taskMap.Unlock()
 		return fmt.Errorf("SetTask: %w", ErrAlreadyExists)
 	}
-	taskMap.m[containerID][taskName] = task
-	taskMap.Unlock()
+	c.taskMap.m[containerID][taskName] = task
+	c.taskMap.Unlock()
 	return nil
 }
 
-func DeleteTask(containerID string, taskName string) error {
-	task, err := GetTask(containerID, taskName)
+func (c *Client) DeleteTask(containerID string, taskName string) error {
+	task, err := c.GetTask(containerID, taskName)
 	if err != nil {
 		return fmt.Errorf("DeleteTask: %w", err)
 	}
-	if err := containerd.WithProcessKill(ctx, task); err != nil {
+	if err := containerd.WithProcessKill(c.ctx, task); err != nil {
 		return fmt.Errorf("DeleteTask: %w", err)
 	}
-	if _, err := task.Delete(ctx); err != nil {
+	if _, err := task.Delete(c.ctx); err != nil {
 		return fmt.Errorf("DeleteTask: %w", err)
 	}
-	taskMap.Lock()
-	delete(taskMap.m[containerID], taskName)
-	taskMap.Unlock()
+	c.taskMap.Lock()
+	delete(c.taskMap.m[containerID], taskName)
+	c.taskMap.Unlock()
 	return nil
 }
 
-var taskMap = TaskMap{
-	m: make(map[string]map[string]containerd.Task),
-}
-
-func ExecuteCommand(containerID, taskName, cwd string, args ...string) (<-chan containerd.ExitStatus, error) {
-	container, err := GetContainer(containerID)
+func (c *Client) ExecuteCommand(containerID, taskName, cwd string, args ...string) (<-chan containerd.ExitStatus, error) {
+	container, err := c.GetContainer(containerID)
 	if err != nil {
 		return nil, fmt.Errorf("ExecuteCommand: %w", err)
 	}
 
-	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+	task, err := container.NewTask(c.ctx, cio.NewCreator(cio.WithStdio))
 	if err != nil {
 		return nil, fmt.Errorf("ExecuteCommand: %w", err)
 	}
@@ -79,43 +75,43 @@ func ExecuteCommand(containerID, taskName, cwd string, args ...string) (<-chan c
 	processSpec.Args = args
 	processSpec.Cwd = cwd
 
-	process, err := task.Exec(ctx, taskName, processSpec, cio.NewCreator(cio.WithStdio))
+	process, err := task.Exec(c.ctx, taskName, processSpec, cio.NewCreator(cio.WithStdio))
 	if err != nil {
-		if err := containerd.WithProcessKill(ctx, task); err != nil {
+		if err := containerd.WithProcessKill(c.ctx, task); err != nil {
 			return nil, fmt.Errorf("ExecuteCommand: Exec: %w", err)
 		}
-		if _, err := task.Delete(ctx); err != nil {
+		if _, err := task.Delete(c.ctx); err != nil {
 			return nil, fmt.Errorf("ExecuteCommand: Exec: %w", err)
 		}
 		return nil, fmt.Errorf("ExecuteCommand: %w", err)
 	}
 
-	if err := process.Start(ctx); err != nil {
-		if err := containerd.WithProcessKill(ctx, task); err != nil {
+	if err := process.Start(c.ctx); err != nil {
+		if err := containerd.WithProcessKill(c.ctx, task); err != nil {
 			return nil, fmt.Errorf("ExecuteCommand: Start: %w", err)
 		}
-		if _, err := task.Delete(ctx); err != nil {
+		if _, err := task.Delete(c.ctx); err != nil {
 			return nil, fmt.Errorf("ExecuteCommand: Start: %w", err)
 		}
 		return nil, fmt.Errorf("ExecuteCommand: %w", err)
 	}
 
-	if err := SetTask(containerID, taskName, task); err != nil {
-		if err := containerd.WithProcessKill(ctx, task); err != nil {
+	if err := c.SetTask(containerID, taskName, task); err != nil {
+		if err := containerd.WithProcessKill(c.ctx, task); err != nil {
 			return nil, fmt.Errorf("ExecuteCommand: SetTask: %w", err)
 		}
-		if _, err := task.Delete(ctx); err != nil {
+		if _, err := task.Delete(c.ctx); err != nil {
 			return nil, fmt.Errorf("ExecuteCommand: SetTask: %w", err)
 		}
 		return nil, fmt.Errorf("ExecuteCommand: %w", err)
 	}
 
-	exitStatusCh, err := process.Wait(ctx)
+	exitStatusCh, err := process.Wait(c.ctx)
 	if err != nil {
-		if err := containerd.WithProcessKill(ctx, task); err != nil {
+		if err := containerd.WithProcessKill(c.ctx, task); err != nil {
 			return nil, fmt.Errorf("ExecuteCommand: Wait: %w", err)
 		}
-		if _, err := task.Delete(ctx); err != nil {
+		if _, err := task.Delete(c.ctx); err != nil {
 			return nil, fmt.Errorf("ExecuteCommand: Wait: %w", err)
 		}
 		return nil, fmt.Errorf("ExecuteCommand: %w", err)

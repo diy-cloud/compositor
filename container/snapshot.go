@@ -10,10 +10,10 @@ type SnapshotMap struct {
 	sync.Mutex
 }
 
-func SnapshotExists(containerID, snapshotID string) bool {
-	snapshotMap.Lock()
-	defer snapshotMap.Unlock()
-	snapshots, ok := snapshotMap.m[containerID]
+func (c *Client) SnapshotExists(containerID, snapshotID string) bool {
+	c.snapshotMap.Lock()
+	defer c.snapshotMap.Unlock()
+	snapshots, ok := c.snapshotMap.m[containerID]
 	if !ok {
 		return false
 	}
@@ -23,33 +23,29 @@ func SnapshotExists(containerID, snapshotID string) bool {
 	return true
 }
 
-func AddSnapshotToMap(containerID, snapshotID string) error {
-	snapshotMap.Lock()
-	defer snapshotMap.Unlock()
-	if _, ok := snapshotMap.m[containerID]; !ok {
-		snapshotMap.m[containerID] = make(map[string]struct{})
+func (c *Client) AddSnapshotToMap(containerID, snapshotID string) error {
+	c.snapshotMap.Lock()
+	defer c.snapshotMap.Unlock()
+	if _, ok := c.snapshotMap.m[containerID]; !ok {
+		c.snapshotMap.m[containerID] = make(map[string]struct{})
 	}
-	if _, ok := snapshotMap.m[containerID][snapshotID]; ok {
-		snapshotMap.Unlock()
+	if _, ok := c.snapshotMap.m[containerID][snapshotID]; ok {
+		c.snapshotMap.Unlock()
 		return fmt.Errorf("AddSnapshotToMap: %w", ErrAlreadyExists)
 	}
-	snapshotMap.m[containerID][snapshotID] = struct{}{}
+	c.snapshotMap.m[containerID][snapshotID] = struct{}{}
 	return nil
 }
 
-func DeleteSnapshotFromMap(containerID, snapshotID string) error {
-	snapshotMap.Lock()
-	defer snapshotMap.Unlock()
-	if _, ok := snapshotMap.m[containerID]; !ok {
+func (c *Client) DeleteSnapshotFromMap(containerID, snapshotID string) error {
+	c.snapshotMap.Lock()
+	defer c.snapshotMap.Unlock()
+	if _, ok := c.snapshotMap.m[containerID]; !ok {
 		return fmt.Errorf("DeleteSnapshotFromMap: %w", ErrNotFound)
 	}
-	if _, ok := snapshotMap.m[containerID][snapshotID]; !ok {
+	if _, ok := c.snapshotMap.m[containerID][snapshotID]; !ok {
 		return fmt.Errorf("DeleteSnapshotFromMap: %w", ErrNotFound)
 	}
-	delete(snapshotMap.m[containerID], snapshotID)
+	delete(c.snapshotMap.m[containerID], snapshotID)
 	return nil
-}
-
-var snapshotMap = SnapshotMap{
-	m: make(map[string]map[string]struct{}),
 }
