@@ -1,10 +1,10 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"runtime"
 	"strings"
 	"sync"
 )
@@ -30,8 +30,15 @@ var ProxyWorks = struct {
 	m: make(map[string]*int),
 }
 
-func AddProxyServer(id, name, dst string) error {
-	url, err := url.Parse(dst)
+var ProxyPorts = struct {
+	sync.Mutex
+	m map[string]int
+}{
+	m: make(map[string]int),
+}
+
+func AddProxyServer(routeName, containerName string, port int) error {
+	url, err := url.Parse(fmt.Sprintf("http://localhost:%d", port))
 	if err != nil {
 		return err
 	}
@@ -39,38 +46,41 @@ func AddProxyServer(id, name, dst string) error {
 	ProxyMap.Lock()
 	ProxyWorks.Lock()
 	ProxyRealName.Lock()
-	ProxyMap.m[id] = proxyServer
-	ProxyWorks.m[id] = new(int)
-	ProxyRealName.m[id] = name
+	ProxyPorts.Lock()
+	ProxyMap.m[routeName] = proxyServer
+	ProxyWorks.m[routeName] = new(int)
+	ProxyRealName.m[routeName] = containerName
+	ProxyPorts.m[routeName] = port
 	ProxyMap.Unlock()
 	ProxyWorks.Unlock()
 	ProxyRealName.Unlock()
+	ProxyPorts.Unlock()
 	return nil
 }
 
-func GetProxyServer(id string) (*httputil.ReverseProxy, bool) {
+func GetProxyServer(name string) (*httputil.ReverseProxy, bool) {
 	ProxyMap.Lock()
 	defer ProxyMap.Unlock()
-	server, ok := ProxyMap.m[id]
+	server, ok := ProxyMap.m[name]
 	return server, ok
 }
 
-func RemoveProxyServer(id string) (string, error) {
+func RemoveProxyServer(id string) (string, *int, int, error) {
 	ProxyMap.Lock()
 	ProxyWorks.Lock()
 	ProxyRealName.Lock()
+	ProxyPorts.Lock()
 	works := ProxyWorks.m[id]
 	delete(ProxyMap.m, id)
 	delete(ProxyWorks.m, id)
 	name := ProxyRealName.m[id]
 	delete(ProxyRealName.m, id)
+	port := ProxyPorts.m[id]
 	ProxyMap.Unlock()
 	ProxyWorks.Unlock()
 	ProxyRealName.Unlock()
-	for *works > 0 {
-		runtime.Gosched()
-	}
-	return name, nil
+	ProxyPorts.Unlock()
+	return name, works, port, nil
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
