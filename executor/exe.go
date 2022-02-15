@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/snowmerak/compositor/docker"
 	"github.com/snowmerak/compositor/proxy"
 	"github.com/snowmerak/compositor/router/register"
 	"github.com/snowmerak/lux"
@@ -42,8 +45,10 @@ func main() {
 	}()
 
 	ch := make(chan os.Signal, 1)
-	go func() {
-		signal.Notify(ch, os.Interrupt)
-	}()
+	signal.Notify(ch, os.Interrupt, os.Signal(syscall.SIGTERM))
 	<-ch
+
+	if err := docker.Close(); err != nil {
+		log.Println(err)
+	}
 }
