@@ -11,23 +11,13 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 )
 
 func main() {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		panic(err)
-	}
-
-	networkResp, err := cli.NetworkCreate(ctx, "test", types.NetworkCreate{
-		Driver:         "bridge",
-		CheckDuplicate: true,
-		Scope:          "local",
-		Internal:       true,
-	})
 	if err != nil {
 		panic(err)
 	}
@@ -39,16 +29,25 @@ func main() {
 	defer reader.Close()
 	io.Copy(os.Stdout, reader)
 
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: "yeasy/simple-web",
-		Tty:   false,
-	}, nil, &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			"network": {
-				NetworkID: networkResp.ID,
+	hostConfig := &container.HostConfig{
+		AutoRemove: true,
+		PortBindings: nat.PortMap{
+			"80/tcp": []nat.PortBinding{
+				{
+					HostIP:   "0.0.0.0",
+					HostPort: "8080",
+				},
 			},
 		},
-	}, nil, "")
+	}
+
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Image: "yeasy/simple-web",
+		ExposedPorts: nat.PortSet{
+			"80/tcp": struct{}{},
+		},
+		Tty: false,
+	}, hostConfig, nil, nil, "")
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +71,7 @@ func main() {
 				}
 				panic(err)
 			}
-			fmt.Printf("[%s-%s]: %s\n", "alpine", resp.ID[:10], string(line[8:]))
+			fmt.Printf("[%s-%s]: %s\n", "simple-web", resp.ID[:10], string(line[8:]))
 		}
 	}()
 
@@ -81,24 +80,6 @@ func main() {
 	<-terminalChan
 
 	if err := cli.ContainerStop(ctx, resp.ID, nil); err != nil {
-		panic(err)
-	}
-
-	if err := cli.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{}); err != nil {
-		panic(err)
-	}
-
-	list, err := cli.ContainerList(ctx, types.ContainerListOptions{})
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("container length: %v\n", len(list))
-	for _, container := range list {
-		fmt.Println(container.ID)
-	}
-
-	if err := cli.NetworkRemove(ctx, networkResp.ID); err != nil {
 		panic(err)
 	}
 }
