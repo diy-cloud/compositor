@@ -22,7 +22,17 @@ func main() {
 		registerGroup := app.NewRouterGroup("/register")
 		registerGroup.POST("/:id", register.Post, nil)
 
-		if err := app.ListenAndServe2TLS(":9999", "localhost/cert.pem", "localhost/key.pem"); err != nil {
+		if err := app.ListenAndServe2(":8888"); err != nil {
+			panic(err)
+		}
+	}()
+
+	go func() {
+		app := lux.New(nil)
+		registerGroup := app.NewRouterGroup("/register")
+		registerGroup.POST("/:id", register.Post, nil)
+
+		if err := app.ListenAndServe2TLS(":9999", "cert.pem", "key.pem"); err != nil {
 			panic(err)
 		}
 	}()
@@ -56,7 +66,7 @@ func main() {
 		http2.ConfigureServer(server, nil)
 
 		fmt.Println("External HTTPS Server is Listening on :443")
-		if err := server.ListenAndServeTLS("localhost/cert.pem", "localhost/key.pem"); err != nil {
+		if err := server.ListenAndServeTLS("cert.pem", "key.pem"); err != nil {
 			panic(err)
 		}
 	}()
