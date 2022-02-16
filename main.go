@@ -82,4 +82,15 @@ func main() {
 	if err := cli.ContainerStop(ctx, resp.ID, nil); err != nil {
 		panic(err)
 	}
+
+	images, err := cli.ImageList(ctx, types.ImageListOptions{})
+	if err != nil {
+		panic(err)
+	}
+	for _, image := range images {
+		fmt.Println(image.ID[:10])
+		fmt.Println(image.RepoDigests)
+		fmt.Println(image.RepoTags)
+		fmt.Println("---")
+	}
 }
