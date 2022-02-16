@@ -4,7 +4,7 @@
 
 ### need to install docker
 
-recommand to use ubuntu and snapcraft
+recommand to use ubuntu and snapcraft.
 
 ```bash
 sudo snap install docker
@@ -28,3 +28,7 @@ installing is able on any OS has go compiler, but will work on linux only.
 post request to `http://<SERVER>:8888/register/:id` or `https://<SERVER>:9999/register/:id` with image built by dockerfile.
 
 and some client can request to `http://<SERVER>:80/:id` or `https://<SERVER>:443/:id` with any route or path variable, body, etc...
+
+## image
+
+the image will be registered is a http server listening on 80 port.
