@@ -28,13 +28,24 @@ var containerList = struct {
 func Close() error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return fmt.Errorf("ImportImageFromReader: %w", err)
+		return fmt.Errorf("Close: %w", err)
 	}
 	defer cli.Close()
-	cancel()
+	defer cancel()
 	for _, c := range containerList.list {
 		if err := cli.ContainerStop(ctx, c, nil); err != nil {
-			return fmt.Errorf("ImportImageFromReader: %w", err)
+			return fmt.Errorf("Close: %w", err)
+		}
+	}
+	images, err := cli.ImageList(ctx, types.ImageListOptions{})
+	if err != nil {
+		return fmt.Errorf("Close: %w", err)
+	}
+	for _, i := range images {
+		if _, err := cli.ImageRemove(ctx, i.ID, types.ImageRemoveOptions{
+			PruneChildren: true,
+		}); err != nil {
+			return fmt.Errorf("Close: %w", err)
 		}
 	}
 	return nil
@@ -49,14 +60,12 @@ func ImportImageFromReader(reader io.Reader, name string) error {
 
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	readCloser, err := cli.ImageImport(ctx, types.ImageImportSource{
-		Source:     reader,
-		SourceName: name,
-	}, name, types.ImageImportOptions{})
+
+	resp, err := cli.ImageLoad(ctx, reader, false)
 	if err != nil {
 		return fmt.Errorf("ImportImageFromReader: %w", err)
 	}
-	io.Copy(os.Stdout, readCloser)
+	io.Copy(os.Stdout, resp.Body)
 
 	return nil
 }
