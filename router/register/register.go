@@ -15,39 +15,37 @@ func Post(lc *context.LuxContext) error {
 
 	name := lc.GetPathVariable("id")
 
-	if err := docker.ImportImageFromReader(bodyReader, name); err != nil {
-		lc.SetBadRequest()
-		return fmt.Errorf("Register.Post: %w", err)
-	}
-
-	id, port, err := docker.CreateContainerByImage(name, name)
-	if err != nil {
-		lc.SetInternalServerError()
-		return fmt.Errorf("Register.Post: %w", err)
-	}
-
-	containerName, workCount, port, err := proxy.RemoveProxyServer(name)
+	containerName, workCount, oldPort, err := proxy.RemoveProxyServer(name)
 	if err != nil {
 		lc.SetInternalServerError()
 		return fmt.Errorf("Register.Post: %w", err)
 	}
 
 	if containerName != "" && workCount != nil {
-		go func() {
-			waitCount := 1
-			for {
-				if err := docker.RemoveContainer(containerName, port, workCount); err != nil {
-					time.Sleep(time.Second * time.Duration(waitCount))
-					waitCount++
-					runtime.Gosched()
-					continue
-				}
-				break
+		waitCount := 1
+		for {
+			if err := docker.RemoveContainer(containerName, oldPort, workCount); err != nil {
+				time.Sleep(time.Second * time.Duration(waitCount))
+				waitCount++
+				runtime.Gosched()
+				continue
 			}
-		}()
+			break
+		}
 	}
 
-	if err := proxy.AddProxyServer(name, id, port); err != nil {
+	if err := docker.ImportImageFromReader(bodyReader, name); err != nil {
+		lc.SetBadRequest()
+		return fmt.Errorf("Register.Post: %w", err)
+	}
+
+	id, newPort, err := docker.CreateContainerByImage(name, name)
+	if err != nil {
+		lc.SetInternalServerError()
+		return fmt.Errorf("Register.Post: %w", err)
+	}
+
+	if err := proxy.AddProxyServer(name, id, newPort); err != nil {
 		lc.SetInternalServerError()
 		return fmt.Errorf("Register.Post: %w", err)
 	}
