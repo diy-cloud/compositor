@@ -5,9 +5,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/snowmerak/compositor/docker"
-	"github.com/snowmerak/compositor/proxy"
-	"github.com/snowmerak/lux/context"
+	"github.com/diy-cloud/compositor/docker"
+	"github.com/diy-cloud/compositor/proxy"
+	"github.com/diy-cloud/lux/context"
 )
 
 func Post(lc *context.LuxContext) error {

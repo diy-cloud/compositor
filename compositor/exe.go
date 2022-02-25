@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/snowmerak/compositor/docker"
-	"github.com/snowmerak/compositor/proxy"
-	"github.com/snowmerak/compositor/router/register"
-	"github.com/snowmerak/lux"
+	"github.com/diy-cloud/compositor/docker"
+	"github.com/diy-cloud/compositor/proxy"
+	"github.com/diy-cloud/compositor/router/register"
+	"github.com/diy-cloud/lux"
 	"golang.org/x/net/http2"
 )
 

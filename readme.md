@@ -13,7 +13,7 @@ sudo snap install docker
 ## install compositor
 
 ```bash
-go install github.com/snowmerak/compositor/compositor@latest
+go install github.com/diy-cloud/compositor/compositor@latest
 ```
 
 installing is able on any OS has go compiler, but will work on linux only.
